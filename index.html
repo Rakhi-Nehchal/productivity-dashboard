@@ -1,1 +1,337 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Personal Productivity Dashboard</title>
+  <!-- Chart.js CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <style>
+    :root{
+      --bg:#f4f6f8;
+      --card:#ffffff;
+      --muted:#6b7280;
+      --accent:#2563eb;
+      --glass: rgba(255,255,255,0.6);
+    }
+    [data-theme="dark"]{
+      --bg:#0b1020;
+      --card:#0f1724;
+      --muted:#9ca3af;
+      --accent:#60a5fa;
+      --glass: rgba(255,255,255,0.03);
+      color: #e6eef8;
+    }
+    *{box-sizing:border-box;font-family:Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial}
+    body{margin:0;background:linear-gradient(180deg,var(--bg),#e9eef6);min-height:100vh;padding:28px}
+    .container{max-width:1100px;margin:0 auto;display:grid;grid-template-columns:1fr 360px;gap:20px}
+    header{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+    h1{font-size:20px;margin:0}
+    .card{background:var(--card);padding:16px;border-radius:12px;box-shadow:0 6px 18px rgba(12,20,35,0.06);}
+    .small{font-size:13px;color:var(--muted)}
+    /* Layout */
+    .main{display:grid;grid-template-rows:auto auto 1fr;gap:16px}
+    .grid-2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+    /* Tasks */
+    .task-list{max-height:260px;overflow:auto;margin-top:8px}
+    .task{display:flex;align-items:center;gap:10px;padding:8px;border-radius:8px}
+    .task.completed{opacity:0.6;text-decoration:line-through}
+    input[type=text]{width:100%;padding:8px;border-radius:8px;border:1px solid #e6eef6;background:transparent}
+    button{background:var(--accent);color:white;border:none;padding:8px 12px;border-radius:8px;cursor:pointer}
+    .muted-btn{background:transparent;color:var(--muted);border:1px solid rgba(0,0,0,0.06)}
+    /* Habits */
+    .habits{display:flex;gap:8px;flex-wrap:wrap}
+    .habit{display:flex;flex-direction:column;align-items:center;padding:10px;border-radius:10px;width:88px}
+    .habit .icon{font-size:22px}
+    .habit button{margin-top:8px}
+    /* Gallery */
+    .gallery{display:flex;gap:8px;overflow:auto;padding-top:8px}
+    .gallery img{width:120px;height:80px;object-fit:cover;border-radius:8px}
+    /* Timer */
+    .timer{display:flex;gap:10px;align-items:center}
+    .time-display{font-family:monospace;font-size:20px;padding:8px 12px;border-radius:8px;background:var(--glass)}
+    /* Profile */
+    .profile{display:flex;gap:12px;align-items:center}
+    .avatar{width:64px;height:64px;border-radius:50%;background:linear-gradient(135deg,#8b5cf6,#06b6d4);display:flex;align-items:center;justify-content:center;color:white;font-weight:700}
+    footer{margin-top:18px;text-align:center;color:var(--muted);font-size:13px}
+    .top-controls{display:flex;gap:8px;align-items:center}
+    .progress-row{display:flex;gap:8px;align-items:center}
+    @media (max-width:980px){.container{grid-template-columns:1fr;}.main{order:0}.sidebar{order:1}}
+  </style>
+</head>
+<body data-theme="light">
+  <div class="container">
+    <div>
+      <header>
+        <div>
+          <h1>✨ Productivity Dashboard</h1>
+          <div class="small">Daily motivator + tasks + habits + tracker</div>
+        </div>
+        <div class="top-controls">
+          <label class="small">Theme</label>
+          <select id="themeToggle" aria-label="Theme switch">
+            <option value="light">Light</option>
+            <option value="dark">Dark</option>
+          </select>
+        </div>
+      </header>
 
+      <main class="main">
+        <!-- Daily Quote + Gallery -->
+        <section class="card">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start">
+            <div>
+              <div class="small">Daily Quote</div>
+              <h2 id="dailyQuote" style="margin:6px 0 0">Loading...</h2>
+              <div class="small" style="margin-top:8px">Source: <span id="quoteAuthor">—</span></div>
+            </div>
+            <div style="min-width:140px">
+              <div class="small">Motivational Gallery</div>
+              <div class="gallery" id="gallery">
+                <!-- images inserted by JS -->
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Tasks and Habits -->
+        <div class="grid-2">
+          <section class="card">
+            <div style="display:flex;justify-content:space-between;align-items:center">
+              <div>
+                <div class="small">Task Manager</div>
+                <strong>Today's Tasks</strong>
+              </div>
+              <div class="small progress-row">Progress: <span id="taskProgress">0%</span></div>
+            </div>
+
+            <div style="margin-top:12px;display:flex;gap:8px">
+              <input id="taskInput" type="text" placeholder="Add a task (press Enter)" />
+              <button id="addTaskBtn">Add</button>
+            </div>
+
+            <div class="task-list card" id="tasks" style="margin-top:10px;padding:10px;background:transparent;box-shadow:none"></div>
+            <div style="display:flex;gap:8px;margin-top:8px">
+              <button id="clearCompleted" class="muted-btn">Clear completed</button>
+              <button id="clearAll" class="muted-btn">Clear all</button>
+            </div>
+          </section>
+
+          <section class="card">
+            <div>
+              <div class="small">Habit Tracker</div>
+              <strong>Daily Habits</strong>
+            </div>
+            <div class="habits" id="habits" style="margin-top:10px">
+              <!-- habit icons go here -->
+            </div>
+            <div style="margin-top:12px;display:flex;gap:8px">
+              <input id="newHabitName" type="text" placeholder="New habit name" />
+              <button id="addHabitBtn">Add</button>
+            </div>
+          </section>
+        </div>
+
+        <!-- Timer + Chart -->
+        <section class="card" style="display:flex;gap:16px;flex-direction:column">
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <div>
+              <div class="small">Focus Timer</div>
+              <strong>Timer & Stopwatch</strong>
+            </div>
+            <div class="small">Tip: use 25/5 for pomodoro</div>
+          </div>
+
+          <div style="display:flex;gap:16px;align-items:center">
+            <div class="timer">
+              <div class="time-display" id="timerDisplay">00:00:00</div>
+              <button id="startTimer">Start</button>
+              <button id="pauseTimer" class="muted-btn">Pause</button>
+              <button id="resetTimer" class="muted-btn">Reset</button>
+            </div>
+
+            <div style="flex:1">
+              <canvas id="progressChart" height="120"></canvas>
+            </div>
+          </div>
+        </section>
+
+        <!-- Profile -->
+        <section class="card">
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <div class="profile">
+              <div class="avatar" id="avatar">YR</div>
+              <div>
+                <div class="small">Profile</div>
+                <strong id="profileName">Your Name</strong>
+                <div class="small" id="profileBio">Add a short bio</div>
+              </div>
+            </div>
+            <div>
+              <button id="editProfile">Edit</button>
+            </div>
+          </div>
+          <div style="margin-top:10px;display:none" id="profileEdit">
+            <input id="nameInput" type="text" placeholder="Your name" />
+            <input id="bioInput" type="text" placeholder="Short bio" style="margin-top:8px" />
+            <div style="margin-top:8px;display:flex;gap:8px">
+              <button id="saveProfile">Save</button>
+              <button id="cancelProfile" class="muted-btn">Cancel</button>
+            </div>
+          </div>
+        </section>
+
+      </main>
+    </div>
+
+    <aside class="sidebar">
+      <div class="card">
+        <div class="small">Quick stats</div>
+        <div style="display:flex;flex-direction:column;gap:8px;margin-top:8px">
+          <div>Tasks: <strong id="statTasks">0</strong></div>
+          <div>Completed: <strong id="statDone">0</strong></div>
+          <div>Habits tracked: <strong id="statHabits">0</strong></div>
+        </div>
+      </div>
+
+      <div class="card" style="margin-top:12px">
+        <div class="small">Motivation</div>
+        <div style="margin-top:8px">Need a boost? Click to shuffle the quote.</div>
+        <div style="margin-top:8px;display:flex;gap:8px">
+          <button id="shuffleQuote">Shuffle</button>
+          <button id="downloadData" class="muted-btn">Export JSON</button>
+        </div>
+      </div>
+
+      <footer>
+        Built with ❤️ • Save data locally in your browser
+      </footer>
+    </aside>
+  </div>
+
+  <script>
+    /* ---------- Data / Defaults ---------- */
+    const QUOTES = [
+      {text: "Small daily improvements are the key to staggering long-term results.", author: "Anonymous"},
+      {text: "Focus on being productive instead of busy.", author: "Tim Ferriss"},
+      {text: "Discipline is choosing between what you want now and what you want most.", author: "Abraham Lincoln"},
+      {text: "You don't have to be great to start, but you have to start to be great.", author: "Zig Ziglar"}
+    ];
+
+    const GALLERY = [
+      'https://images.unsplash.com/photo-1503676260728-1c00da094a0b?w=800&q=60',
+      'https://images.unsplash.com/photo-1506784983877-45594efa4cbe?w=800&q=60',
+      'https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?w=800&q=60'
+    ];
+
+    /* ---------- Utilities ---------- */
+    function el(id){return document.getElementById(id)}
+    function save(key, value){localStorage.setItem(key, JSON.stringify(value))}
+    function load(key, fallback){const s = localStorage.getItem(key); return s ? JSON.parse(s) : fallback}
+
+    /* ---------- Theme ---------- */
+    const themeToggle = el('themeToggle');
+    const body = document.body;
+    const savedTheme = load('pdb-theme','light');
+    themeToggle.value = savedTheme;
+    body.setAttribute('data-theme', savedTheme);
+    themeToggle.addEventListener('change', ()=>{const v=themeToggle.value; body.setAttribute('data-theme',v); save('pdb-theme', v)});
+
+    /* ---------- Quotes + Gallery ---------- */
+    function showQuote(q){el('dailyQuote').textContent = `"${q.text}"`; el('quoteAuthor').textContent = q.author}
+    function shuffleQuote(){const q = QUOTES[Math.floor(Math.random()*QUOTES.length)]; showQuote(q); save('pdb-quote', q)}
+    // show gallery
+    const gallery = el('gallery'); GALLERY.forEach(src=>{const img=document.createElement('img');img.src=src;gallery.appendChild(img)})
+    // initial quote
+    const storedQuote = load('pdb-quote', null);
+    if(storedQuote) showQuote(storedQuote); else shuffleQuote();
+    el('shuffleQuote').addEventListener('click', ()=>{shuffleQuote()});
+
+    /* ---------- Tasks ---------- */
+    let tasks = load('pdb-tasks', []);
+    const tasksEl = el('tasks');
+    function renderTasks(){tasksEl.innerHTML='';
+      tasks.forEach((t, idx)=>{
+        const div=document.createElement('div');div.className='task '+(t.done? 'completed':'');
+        const checkbox=document.createElement('input');checkbox.type='checkbox';checkbox.checked=t.done;checkbox.addEventListener('change', ()=>{tasks[idx].done = checkbox.checked; save('pdb-tasks',tasks); renderTasks(); updateStats(); updateChart()});
+        const span=document.createElement('div');span.style.flex='1';span.textContent=t.text;
+        const del=document.createElement('button');del.className='muted-btn';del.textContent='✕';del.addEventListener('click', ()=>{tasks.splice(idx,1); save('pdb-tasks',tasks); renderTasks(); updateStats(); updateChart()});
+        div.appendChild(checkbox);div.appendChild(span);div.appendChild(del);tasksEl.appendChild(div);
+      })
+      el('statTasks').textContent = tasks.length; el('statDone').textContent = tasks.filter(t=>t.done).length;
+      const progress = tasks.length ? Math.round(tasks.filter(t=>t.done).length / tasks.length * 100) : 0;
+      el('taskProgress').textContent = progress + '%';
+    }
+    renderTasks();
+
+    el('addTaskBtn').addEventListener('click', addTask);
+    el('taskInput').addEventListener('keydown', e=>{ if(e.key==='Enter') addTask();});
+    function addTask(){const v=el('taskInput').value.trim(); if(!v) return; tasks.unshift({text:v, done:false}); el('taskInput').value=''; save('pdb-tasks', tasks); renderTasks(); updateStats(); updateChart();}
+    el('clearCompleted').addEventListener('click', ()=>{tasks = tasks.filter(t=>!t.done); save('pdb-tasks',tasks); renderTasks(); updateStats(); updateChart();});
+    el('clearAll').addEventListener('click', ()=>{if(confirm('Clear all tasks?')){tasks=[];save('pdb-tasks',tasks);renderTasks();updateStats();updateChart();}})
+
+    /* ---------- Habits ---------- */
+    let habits = load('pdb-habits', [
+      {name:'Water', icon:'💧', count:0},
+      {name:'Read', icon:'📚', count:0},
+      {name:'Move', icon:'🏃', count:0}
+    ]);
+    function renderHabits(){const elh = el('habits'); elh.innerHTML=''; habits.forEach((h, i)=>{
+      const d = document.createElement('div'); d.className='habit card'; d.style.background='var(--glass)';
+      d.innerHTML = `<div class="icon">${h.icon}</div><div style="font-weight:600">${h.name}</div><div class="small">${h.count} today</div>`;
+      const btn = document.createElement('button'); btn.textContent='+'; btn.addEventListener('click', ()=>{habits[i].count++; save('pdb-habits',habits); renderHabits(); updateStats(); updateChart()});
+      const reset = document.createElement('button'); reset.className='muted-btn'; reset.textContent='reset'; reset.addEventListener('click', ()=>{habits[i].count=0; save('pdb-habits',habits); renderHabits(); updateStats(); updateChart()});
+      d.appendChild(btn); d.appendChild(reset); elh.appendChild(d);
+    })
+      el('statHabits').textContent = habits.length;
+    }
+    renderHabits();
+
+    el('addHabitBtn').addEventListener('click', ()=>{const name = el('newHabitName').value.trim(); if(!name) return; const icons = ['🌿','🧘','🧠','🖋️','☕','💧','🏃','📚']; habits.push({name, icon: icons[Math.floor(Math.random()*icons.length)], count:0}); el('newHabitName').value=''; save('pdb-habits',habits); renderHabits(); updateStats(); updateChart();})
+
+    /* ---------- Profile ---------- */
+    const profile = load('pdb-profile', {name:'Your Name', bio:'A short bio'});
+    function renderProfile(){el('profileName').textContent = profile.name; el('profileBio').textContent = profile.bio; el('avatar').textContent = (profile.name.split(' ').map(s=>s[0]).slice(0,2).join('') || 'YR').toUpperCase();}
+    renderProfile();
+    el('editProfile').addEventListener('click', ()=>{el('profileEdit').style.display='block'; el('nameInput').value = profile.name; el('bioInput').value = profile.bio});
+    el('cancelProfile').addEventListener('click', ()=>{el('profileEdit').style.display='none'});
+    el('saveProfile').addEventListener('click', ()=>{profile.name = el('nameInput').value || 'Your Name'; profile.bio = el('bioInput').value || 'A short bio'; save('pdb-profile',profile); renderProfile(); el('profileEdit').style.display='none'})
+
+    /* ---------- Timer (simple) ---------- */
+    let timerT = 0; let timerInterval = null; let timerRunning=false;
+    function formatTime(s){ const h=Math.floor(s/3600); const m=Math.floor((s%3600)/60); const sec=s%60; return [h,m,sec].map(v=>String(v).padStart(2,'0')).join(':') }
+    el('startTimer').addEventListener('click', ()=>{ if(!timerRunning){timerInterval = setInterval(()=>{timerT++; el('timerDisplay').textContent = formatTime(timerT)},1000); timerRunning=true;} });
+    el('pauseTimer').addEventListener('click', ()=>{ if(timerRunning){clearInterval(timerInterval); timerRunning=false;} });
+    el('resetTimer').addEventListener('click', ()=>{ if(timerInterval) clearInterval(timerInterval); timerT=0; timerRunning=false; el('timerDisplay').textContent='00:00:00'; });
+
+    /* ---------- Chart (Chart.js) ---------- */
+    const ctx = document.getElementById('progressChart').getContext('2d');
+    let chart = new Chart(ctx, {
+      type:'doughnut',
+      data:{labels:['Tasks done','Tasks left','Habit actions'], datasets:[{data:[0,1,0]}]},
+      options:{plugins:{legend:{display:true}}}
+    });
+    function updateChart(){ const done = tasks.filter(t=>t.done).length; const left = Math.max(0, tasks.length - done); const habitActions = habits.reduce((s,h)=>s+h.count,0); chart.data.datasets[0].data = [done,left,habitActions || 0]; chart.update(); }
+    updateChart();
+
+    /* ---------- Stats ---------- */
+    function updateStats(){el('statTasks').textContent = tasks.length; el('statDone').textContent = tasks.filter(t=>t.done).length; el('statHabits').textContent = habits.length}
+
+    /* ---------- Export / Import ---------- */
+    el('downloadData').addEventListener('click', ()=>{
+      const data = {tasks,habits,profile,quote:load('pdb-quote',null),theme:load('pdb-theme','light')};
+      const blob = new Blob([JSON.stringify(data, null, 2)],{type:'application/json'}); const url=URL.createObjectURL(blob);
+      const a=document.createElement('a'); a.href=url; a.download='productivity-data.json'; a.click(); URL.revokeObjectURL(url);
+    })
+
+    /* ---------- Initial render + save hooks ---------- */
+    // ensure saved values exist
+    save('pdb-tasks', tasks); save('pdb-habits', habits); save('pdb-profile', profile);
+    renderTasks(); renderHabits(); renderProfile(); updateChart();
+
+    // Autos-save on page unload
+    window.addEventListener('beforeunload', ()=>{ save('pdb-tasks',tasks); save('pdb-habits',habits); save('pdb-profile',profile) });
+
+  </script>
+</body>
+</html>
